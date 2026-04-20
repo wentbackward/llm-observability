@@ -2,22 +2,23 @@
 
 A pre-configured Prometheus + Grafana stack for monitoring self-hosted LLM infrastructure. Drop it on the same box as your LLM server, a neighbouring host on your LAN, or a remote VPS — the stack itself is vanilla Prometheus + Grafana and makes no assumptions about how you reach it.
 
-Designed as a companion to:
+Designed to scrape:
 
+- **vLLM instances** — vLLM exposes Prometheus metrics on `/metrics` of its OpenAI API port by default (request rate, TTFT, tokens/sec, KV cache usage, batch size, etc.). One scrape target per vLLM process.
 - [`llm-proxy`](https://github.com/wentbackward/llm-proxy) — OpenAI-compatible proxy exposing per-request metrics on `:9091`
 - [`nv-monitor`](https://github.com/wentbackward/nv-monitor) — Prometheus-format system/GPU metrics for NVIDIA hardware (works correctly on unified-memory platforms like DGX Spark)
 
-Works standalone with any OpenAI-compatible backend that emits Prometheus metrics (vLLM does by default on `/metrics`).
+The shipped `prometheus.yml` has example scrape targets for all three — edit it to point at your own hosts and ports.
 
 ---
 
 ## What you get
 
-- **Prometheus** — 30-day TSDB retention by default, scrape configs for `llm-proxy`, `nv-monitor`, and vLLM
+- **Prometheus** — 30-day TSDB retention by default, scrape configs for vLLM, `llm-proxy`, and `nv-monitor`
 - **Grafana 11** — two provisioned dashboards:
   - *LLM Observability* — request latency, TTFT, token counts, error rates
   - *GPU & System Resources* — CPU / GPU / memory / temps / power across nodes
-- **HTTPS via `tailscale serve`** — Grafana is bound to `127.0.0.1:3033` on the host and exposed on the tailnet with an auto-renewing Tailscale cert. No manual cert management, no public exposure.
+- **Loopback-only Grafana binding** — ships bound to `127.0.0.1:3033` so it's not exposed until you front it with something (see "pick your own poison" below)
 
 ---
 
