@@ -1,0 +1,399 @@
+{
+  "title": "LLM Observability",
+  "uid": "llm-overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "panels": [
+
+    {
+      "id": 1,
+      "title": "Time to First Token",
+      "description": "Latency from request sent to first content token received by the proxy",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.50, sum(rate(llm_time_to_first_token_seconds_bucket[5m])) by (le, backend))",
+          "legendFormat": "p50 {{backend}}"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.95, sum(rate(llm_time_to_first_token_seconds_bucket[5m])) by (le, backend))",
+          "legendFormat": "p95 {{backend}}"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.99, sum(rate(llm_time_to_first_token_seconds_bucket[5m])) by (le, backend))",
+          "legendFormat": "p99 {{backend}}"
+        }
+      ]
+    },
+
+    {
+      "id": 2,
+      "title": "Total Request Duration",
+      "description": "Wall-clock time from first byte sent to last byte of response (includes full generation)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.50, sum(rate(llm_request_duration_seconds_bucket{status!=\"error\"}[5m])) by (le, backend))",
+          "legendFormat": "p50 {{backend}}"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.95, sum(rate(llm_request_duration_seconds_bucket{status!=\"error\"}[5m])) by (le, backend))",
+          "legendFormat": "p95 {{backend}}"
+        }
+      ]
+    },
+
+    {
+      "id": 3,
+      "title": "Generation Speed (tokens/sec)",
+      "description": "Completion tokens per second — most recent completed request per backend",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "llm_generation_tokens_per_second",
+          "legendFormat": "{{backend}} / {{model}}"
+        }
+      ]
+    },
+
+    {
+      "id": 4,
+      "title": "Token Usage Rate",
+      "description": "Prompt and completion tokens consumed per minute",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "rate(llm_prompt_tokens_total[5m]) * 60",
+          "legendFormat": "prompt {{backend}}"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "rate(llm_completion_tokens_total[5m]) * 60",
+          "legendFormat": "completion {{backend}}"
+        }
+      ]
+    },
+
+    {
+      "id": 5,
+      "title": "Active Requests",
+      "description": "Requests currently in flight through the proxy",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 16, "w": 6, "h": 4 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 3 },
+            { "color": "red", "value": 8 }
+          ]
+        }}
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(llm_active_requests)",
+          "legendFormat": "active"
+        }
+      ]
+    },
+
+    {
+      "id": 6,
+      "title": "Request Rate",
+      "description": "Requests per minute through the proxy",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 16, "w": 6, "h": 4 },
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(llm_requests_total{status!=\"error\"}[5m])) * 60",
+          "legendFormat": "req/min"
+        }
+      ]
+    },
+
+    {
+      "id": 7,
+      "title": "Error Rate",
+      "description": "Upstream errors and non-2xx responses per minute",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 16, "w": 6, "h": 4 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "red", "value": 0.1 }
+          ]
+        }}
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(llm_requests_total{status=~\"error|5..\"}[5m])) * 60",
+          "legendFormat": "errors/min"
+        }
+      ]
+    },
+
+    {
+      "id": 8,
+      "title": "vLLM — KV Cache Utilisation",
+      "description": "GPU KV cache fill level. Approaching 1.0 causes evictions and degrades latency. (Requires vLLM metrics endpoint)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0, "max": 1,
+          "custom": { "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.7 },
+              { "color": "red", "value": 0.9 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "vllm:kv_cache_usage_perc",
+          "legendFormat": "{{job}} / {{model_name}}"
+        }
+      ]
+    },
+
+    {
+      "id": 9,
+      "title": "vLLM — Queue Depth",
+      "description": "Requests running vs waiting in the vLLM scheduler. Persistent waiting queue = throughput bottleneck.",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "vllm:num_requests_running",
+          "legendFormat": "running {{job}}"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "vllm:num_requests_waiting",
+          "legendFormat": "waiting {{job}}"
+        }
+      ]
+    },
+
+    {
+      "id": 10,
+      "title": "vLLM — TTFT (server-side)",
+      "description": "vLLM's own TTFT measurement — compare against the proxy measurement above to see OpenClaw/network overhead",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 28, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.50, sum(rate(vllm:time_to_first_token_seconds_bucket[5m])) by (le, model_name))",
+          "legendFormat": "p50 {{model_name}}"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.95, sum(rate(vllm:time_to_first_token_seconds_bucket[5m])) by (le, model_name))",
+          "legendFormat": "p95 {{model_name}}"
+        }
+      ]
+    },
+
+    {
+      "id": 11,
+      "title": "vLLM — Generation Throughput",
+      "description": "Tokens per second as measured by vLLM's internal counters",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 28, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "vllm:avg_generation_throughput_toks_per_s",
+          "legendFormat": "gen {{job}}"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "vllm:avg_prompt_throughput_toks_per_s",
+          "legendFormat": "prompt {{job}}"
+        }
+      ]
+    },
+
+    {
+      "id": 12,
+      "title": "Prompt Size Over Time",
+      "description": "Prompt token count per request — rising trend indicates OpenClaw is accumulating context. Quadratic growth = full history sent every turn.",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 36, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.50, sum(rate(vllm:request_prompt_tokens_bucket[5m])) by (le, model_name))",
+          "legendFormat": "p50 {{model_name}}"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.95, sum(rate(vllm:request_prompt_tokens_bucket[5m])) by (le, model_name))",
+          "legendFormat": "p95 {{model_name}}"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(1.0, sum(rate(vllm:request_prompt_tokens_bucket[5m])) by (le, model_name))",
+          "legendFormat": "max {{model_name}}"
+        }
+      ]
+    },
+
+    {
+      "id": 13,
+      "title": "Prefix Cache Hit Rate",
+      "description": "Fraction of prompt tokens served from vLLM's prefix cache. Low hit rate with repeated system prompts suggests --enable-prefix-caching is not active.",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 36, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "rate(vllm:prefix_cache_hits_total[5m]) / clamp_min(rate(vllm:prefix_cache_queries_total[5m]), 0.001)",
+          "legendFormat": "hit rate {{model_name}}"
+        }
+      ]
+    },
+
+    {
+      "id": 14,
+      "title": "Think Block Ratio",
+      "description": "Fraction of completion characters inside <think> blocks. High ratio means most tokens are reasoning overhead sent back to OpenClaw.",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 44, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.50, sum(rate(llm_think_content_ratio_bucket[5m])) by (le, backend))",
+          "legendFormat": "p50 {{backend}}"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.95, sum(rate(llm_think_content_ratio_bucket[5m])) by (le, backend))",
+          "legendFormat": "p95 {{backend}}"
+        }
+      ]
+    },
+
+    {
+      "id": 15,
+      "title": "vLLM — Prefill vs Decode Time",
+      "description": "Prefill time dominated by long contexts; decode time dominated by generation length. High prefill = context too long.",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 44, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.50, sum(rate(vllm:request_prefill_time_seconds_bucket[5m])) by (le, model_name))",
+          "legendFormat": "prefill p50 {{model_name}}"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.50, sum(rate(vllm:request_decode_time_seconds_bucket[5m])) by (le, model_name))",
+          "legendFormat": "decode p50 {{model_name}}"
+        }
+      ]
+    }
+
+  ]
+}

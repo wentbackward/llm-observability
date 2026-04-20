@@ -1,0 +1,9 @@
+# Secrets — never commit
+.env
+
+# OS cruft
+.DS_Store
+
+# Claude Code / OMC session artifacts
+.claude/
+.omc/

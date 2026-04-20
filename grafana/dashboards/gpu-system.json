@@ -1,0 +1,397 @@
+{
+  "title": "GPU & System Resources",
+  "uid": "gpu-system",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "templating": {
+    "list": [
+      {
+        "name": "host",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(nv_build_info, host)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+
+    {
+      "id": 100,
+      "type": "row",
+      "title": "GPU",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+
+    {
+      "id": 1,
+      "title": "GPU Utilization",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 1, "w": 8, "h": 7 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": { "lineWidth": 2, "fillOpacity": 20 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "nv_gpu_utilization_percent{host=~\"$host\"}",
+          "legendFormat": "{{host}} gpu{{gpu}}"
+        }
+      ]
+    },
+
+    {
+      "id": 2,
+      "title": "GPU Temperature",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 1, "w": 8, "h": 7 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "nv_gpu_temperature_celsius{host=~\"$host\"}",
+          "legendFormat": "{{host}} gpu{{gpu}}"
+        }
+      ]
+    },
+
+    {
+      "id": 3,
+      "title": "GPU Power Draw",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 1, "w": 8, "h": 7 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "min": 0,
+          "custom": { "lineWidth": 2, "fillOpacity": 15 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "nv_gpu_power_watts{host=~\"$host\"}",
+          "legendFormat": "{{host}} gpu{{gpu}}"
+        }
+      ]
+    },
+
+    {
+      "id": 4,
+      "title": "GPU Clock Speed",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 8, "w": 8, "h": 4 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "clockMHz",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "nv_gpu_clock_mhz{host=~\"$host\", type=\"graphics\"}",
+          "legendFormat": "{{host}} gpu{{gpu}}"
+        }
+      ]
+    },
+
+    {
+      "id": 5,
+      "title": "GPU Encoder / Decoder",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 8, "w": 8, "h": 4 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "nv_gpu_encoder_utilization_percent{host=~\"$host\"}",
+          "legendFormat": "{{host}} encoder"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "nv_gpu_decoder_utilization_percent{host=~\"$host\"}",
+          "legendFormat": "{{host}} decoder"
+        }
+      ]
+    },
+
+    {
+      "id": 6,
+      "title": "Uptime",
+      "type": "stat",
+      "gridPos": { "x": 16, "y": 8, "w": 8, "h": 4 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dtdurations",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "nv_uptime_seconds{host=~\"$host\"}",
+          "legendFormat": "{{host}}"
+        }
+      ]
+    },
+
+    {
+      "id": 200,
+      "type": "row",
+      "title": "CPU",
+      "gridPos": { "x": 0, "y": 12, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+
+    {
+      "id": 7,
+      "title": "CPU Utilization (Overall)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 13, "w": 12, "h": 7 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": { "lineWidth": 2, "fillOpacity": 20 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "nv_cpu_usage_percent{host=~\"$host\", cpu=\"overall\"}",
+          "legendFormat": "{{host}}"
+        }
+      ]
+    },
+
+    {
+      "id": 8,
+      "title": "CPU Temperature",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 13, "w": 6, "h": 7 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "lineWidth": 2,
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "nv_cpu_temperature_celsius{host=~\"$host\"}",
+          "legendFormat": "{{host}}"
+        }
+      ]
+    },
+
+    {
+      "id": 9,
+      "title": "Load Average",
+      "type": "timeseries",
+      "gridPos": { "x": 18, "y": 13, "w": 6, "h": 7 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "nv_load_average{host=~\"$host\", interval=\"1m\"}",
+          "legendFormat": "{{host}} 1m"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "nv_load_average{host=~\"$host\", interval=\"5m\"}",
+          "legendFormat": "{{host}} 5m"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "nv_load_average{host=~\"$host\", interval=\"15m\"}",
+          "legendFormat": "{{host}} 15m"
+        }
+      ]
+    },
+
+    {
+      "id": 300,
+      "type": "row",
+      "title": "Memory",
+      "gridPos": { "x": 0, "y": 20, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+
+    {
+      "id": 10,
+      "title": "Unified Memory Usage",
+      "description": "GB10 uses unified CPU/GPU memory — this is the full 128 GiB pool",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 21, "w": 12, "h": 7 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "stacking": { "mode": "normal" }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "total" },
+            "properties": [
+              { "id": "custom.fillOpacity", "value": 0 },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } },
+              { "id": "custom.stacking", "value": { "mode": "none" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "nv_memory_used_bytes{host=~\"$host\"}",
+          "legendFormat": "{{host}} used"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "nv_memory_bufcache_bytes{host=~\"$host\"}",
+          "legendFormat": "{{host}} buf/cache"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "nv_memory_total_bytes{host=~\"$host\"}",
+          "legendFormat": "total"
+        }
+      ]
+    },
+
+    {
+      "id": 11,
+      "title": "Memory Utilization",
+      "type": "gauge",
+      "gridPos": { "x": 12, "y": 21, "w": 6, "h": 7 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.8 },
+              { "color": "red", "value": 0.95 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "nv_memory_used_bytes{host=~\"$host\"} / nv_memory_total_bytes{host=~\"$host\"}",
+          "legendFormat": "{{host}}"
+        }
+      ]
+    },
+
+    {
+      "id": 12,
+      "title": "Swap Usage",
+      "type": "timeseries",
+      "gridPos": { "x": 18, "y": 21, "w": 6, "h": 7 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "custom": { "lineWidth": 2, "fillOpacity": 15 }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "total" },
+            "properties": [
+              { "id": "custom.fillOpacity", "value": 0 },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "nv_swap_used_bytes{host=~\"$host\"}",
+          "legendFormat": "{{host}} used"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "nv_swap_total_bytes{host=~\"$host\"}",
+          "legendFormat": "total"
+        }
+      ]
+    }
+
+  ]
+}

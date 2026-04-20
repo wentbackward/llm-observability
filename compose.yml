@@ -1,0 +1,39 @@
+services:
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}
+    dns:
+      - 100.100.100.100
+      - 8.8.8.8
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      # Loopback-only — fronted by `tailscale serve` on the host for HTTPS.
+      - "127.0.0.1:${GRAFANA_HOST_PORT:-3033}:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus-data:
+    name: ${PROMETHEUS_VOLUME:-llm-observability_prometheus-data}
+  grafana-data:
+    name: ${GRAFANA_VOLUME:-llm-observability_grafana-data}
