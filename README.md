@@ -1,6 +1,6 @@
 # llm-observability
 
-A pre-configured Prometheus + Grafana stack for monitoring self-hosted LLM infrastructure over a Tailscale network. TLS termination is handled by `tailscale serve` on the host — no cert rotation, no reverse-proxy container.
+A pre-configured Prometheus + Grafana stack for monitoring self-hosted LLM infrastructure. Drop it on the same box as your LLM server, a neighbouring host on your LAN, or a remote VPS — the stack itself is vanilla Prometheus + Grafana and makes no assumptions about how you reach it.
 
 Designed as a companion to:
 
@@ -24,9 +24,12 @@ Works standalone with any OpenAI-compatible backend that emits Prometheus metric
 ## Prerequisites
 
 - VPS or LAN host with Docker + Docker Compose
-- Tailscale installed, authenticated, and with **HTTPS enabled** on the tailnet
-- Scrape targets reachable from the host (typically other Tailscale nodes running `llm-proxy`, `nv-monitor`, or `vllm`)
+- Scrape targets reachable from the host (e.g. `llm-proxy`, `nv-monitor`, or `vllm`)
 - Root SSH access from your deploy machine to the host
+
+**Grafana binds to `127.0.0.1:3033` by default — so you need `tailscale serve`, Caddy, nginx, `ssh -L`, or another mechanism to actually reach it. Pick your own poison.** The walkthrough below uses `tailscale serve` because it's the shortest path to working HTTPS, but the stack itself is vanilla Prometheus + Grafana and doesn't depend on Tailscale.
+
+If you're running this on a trusted LAN and don't want a reverse proxy at all, change `compose.yml`'s port line from `127.0.0.1:${GRAFANA_HOST_PORT:-3033}:3000` to `0.0.0.0:${GRAFANA_HOST_PORT:-3033}:3000` (or just `${GRAFANA_HOST_PORT:-3033}:3000`) and hit it directly over HTTP.
 
 ---
 
@@ -110,10 +113,9 @@ llm-observability/
 
 ## Security notes
 
-- Grafana is bound only to `127.0.0.1` — unreachable from any public or LAN interface
-- HTTPS is provided by `tailscale serve`; only tailnet members can reach the UI
-- Prometheus is not exposed on the host at all — internal Docker network only
-- No authentication on Prometheus's scrape endpoint — access depends entirely on tailnet membership. Do not deploy this stack on a public-facing VPS without additional hardening.
+- Grafana is bound only to `127.0.0.1` by default — unreachable from any public or LAN interface until you front it with something (Tailscale, Caddy, nginx, `ssh -L`) or explicitly change the binding
+- Prometheus is never exposed on the host at all — internal Docker network only
+- No authentication on Prometheus's scrape endpoint itself — access depends entirely on whatever network perimeter you place around it. **Do not expose this stack directly on a public interface** without adding auth (reverse proxy with basic auth, Tailscale-only access, firewall rules, or similar)
 
 ---
 
