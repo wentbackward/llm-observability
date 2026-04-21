@@ -1,0 +1,279 @@
+{
+  "title": "LLM Stability",
+  "uid": "llm-stability",
+  "description": "Early-warning dashboard for vLLM stability issues: KV cache saturation, request preemption, context pressure, TPOT regressions, and prefix cache effectiveness. 'Running riot' usually means the KV cache is red and preemptions are climbing.",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "tags": ["vllm", "stability", "llm"],
+  "templating": {
+    "list": [
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(vllm:kv_cache_usage_perc, model_name)",
+        "refresh": 1,
+        "includeAll": true,
+        "multi": true,
+        "current": { "selected": true, "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Status",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
+    },
+    {
+      "id": 2,
+      "type": "gauge",
+      "title": "KV Cache Usage (per model)",
+      "description": "Running 85%+ means the model is swapping hard. 95%+ triggers preemptions — expect 'running riot' / loop behaviour in OpenClaw.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 1, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "vllm:kv_cache_usage_perc{model_name=~\"$model\"}",
+          "legendFormat": "{{model_name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 0.85 },
+              { "color": "red",    "value": 0.95 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Preemptions (last 5m, by model)",
+      "description": "Count of requests vLLM had to kick out of VRAM to make room. Any non-zero value here while OpenClaw is running = the 'loop' generator.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 12, "y": 1, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (model_name) (increase(vllm:num_preemptions_total{model_name=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red",    "value": 10 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "graphMode": "area",
+        "colorMode": "background",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      }
+    },
+    {
+      "id": 4,
+      "type": "row",
+      "title": "Capacity & latency",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 9, "w": 24, "h": 1 }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Avg prompt tokens per request",
+      "description": "Average prompt size per successful request. Compare against the model's max_model_len (131072 for Qwen 3.5 35B). Pushing 120k+ on average is a cue to /compact in OpenClaw.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 10, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (model_name) (rate(vllm:request_prompt_tokens_sum{model_name=~\"$model\"}[5m])) / clamp_min(sum by (model_name) (rate(vllm:request_prompt_tokens_count{model_name=~\"$model\"}[5m])), 1)",
+          "legendFormat": "{{model_name}} avg prompt tokens",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(vllm:request_prompt_tokens_bucket{model_name=~\"$model\"}[5m])) by (le, model_name))",
+          "legendFormat": "{{model_name}} p95",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "orange", "value": 100000 },
+              { "color": "red",    "value": 120000 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "table", "calcs": ["lastNotNull", "max"], "placement": "bottom" }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Time per output token (TPOT, avg)",
+      "description": "On a DGX Spark with a 35B model expect 0.02–0.04s/token (25–50 t/s). >0.1s suggests FlashInfer struggling under long context — consider tensor_parallel=2 or shorter max_model_len.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 12, "y": 10, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (model_name) (rate(vllm:request_time_per_output_token_seconds_sum{model_name=~\"$model\"}[5m])) / clamp_min(sum by (model_name) (rate(vllm:request_time_per_output_token_seconds_count{model_name=~\"$model\"}[5m])), 0.001)",
+          "legendFormat": "{{model_name}} avg",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(vllm:request_time_per_output_token_seconds_bucket{model_name=~\"$model\"}[5m])) by (le, model_name))",
+          "legendFormat": "{{model_name}} p95",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "orange", "value": 0.04 },
+              { "color": "red",    "value": 0.1 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "table", "calcs": ["lastNotNull", "max"], "placement": "bottom" }
+      }
+    },
+    {
+      "id": 7,
+      "type": "row",
+      "title": "Efficiency",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 18, "w": 24, "h": 1 }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Prefix cache hit rate",
+      "description": "Fraction of prompt-token lookups served from the prefix cache. A high hit rate (≥0.8) keeps TTFT low for repeat turns of the same OpenClaw conversation.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 19, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (model_name) (rate(vllm:prefix_cache_hits_total{model_name=~\"$model\"}[5m])) / clamp_min(sum by (model_name) (rate(vllm:prefix_cache_queries_total{model_name=~\"$model\"}[5m])), 0.001)",
+          "legendFormat": "{{model_name}} hit rate",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": null },
+              { "color": "orange", "value": 0.3 },
+              { "color": "green",  "value": 0.6 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "table", "calcs": ["lastNotNull", "mean"], "placement": "bottom" }
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Preemption rate (per min)",
+      "description": "Rolling rate of preemptions — climbing here is the direct signal of KV cache contention and bumps to gpu_memory_utilization.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 12, "y": 19, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (model_name) (rate(vllm:num_preemptions_total{model_name=~\"$model\"}[5m])) * 60",
+          "legendFormat": "{{model_name}} preempt/min",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "orange", "value": 0.2 },
+              { "color": "red",    "value": 1 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "table", "calcs": ["lastNotNull", "max"], "placement": "bottom" }
+      }
+    }
+  ]
+}
