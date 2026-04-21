@@ -263,8 +263,8 @@
 
     {
       "id": 11,
-      "title": "vLLM — Generation Throughput",
-      "description": "Tokens per second as measured by vLLM's internal counters",
+      "title": "vLLM — Throughput (tokens/sec)",
+      "description": "Tokens per second derived from vLLM's cumulative token counters. The old avg_*_throughput_toks_per_s gauges were removed in recent vLLM versions.",
       "type": "timeseries",
       "gridPos": { "x": 12, "y": 28, "w": 12, "h": 8 },
       "fieldConfig": {
@@ -276,13 +276,13 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "vllm:avg_generation_throughput_toks_per_s",
-          "legendFormat": "gen {{job}}"
+          "expr": "sum by (model_name) (rate(vllm:generation_tokens_total[1m]))",
+          "legendFormat": "gen — {{model_name}}"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "vllm:avg_prompt_throughput_toks_per_s",
-          "legendFormat": "prompt {{job}}"
+          "expr": "sum by (model_name) (rate(vllm:prompt_tokens_total[1m]))",
+          "legendFormat": "prompt — {{model_name}}"
         }
       ]
     },
