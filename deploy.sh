@@ -34,7 +34,12 @@ deploy() {
   # Whitelist: only ship what compose actually needs at runtime.
   # Anything not listed here is denied AND removed from the target on each
   # deploy (--delete-excluded). .env is protected and shipped separately.
-  rsync -avz --delete --delete-excluded \
+  #
+  # --inplace preserves inodes. Critical for prometheus.yml: compose binds
+  # it as a single file, and Docker pins the original inode at mount time.
+  # Without --inplace, rsync's temp-file-then-rename leaves the container
+  # reading the pre-deploy version forever.
+  rsync -avz --inplace --delete --delete-excluded \
     --filter='P /.env' \
     --include='/compose.yml' \
     --include='/prometheus.yml' \
@@ -51,6 +56,11 @@ deploy() {
 
   info "Starting stack..."
   ssh "$VPS" "cd ${TARGET} && docker compose up -d && docker compose ps"
+
+  # Prometheus reloads its config on SIGHUP. Cheap to do unconditionally —
+  # a no-op if compose just recreated the container.
+  info "Reloading prometheus config..."
+  ssh "$VPS" "docker kill --signal=HUP prometheus" >/dev/null
 }
 
 apply_tailscale_serve() {
