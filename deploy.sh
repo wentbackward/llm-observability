@@ -1,17 +1,29 @@
 #!/usr/bin/env bash
 # Deploy the llm-observability stack to a remote VPS.
 #
-# Defaults target `root@claw`. Override with VPS env var:
-#   VPS=root@myvps ./deploy.sh
+# Configuration is read from .env (gitignored). Required:
+#   VPS=root@myvps              # ssh target
+# Optional:
+#   TARGET=/opt/llm-observability  # remote install path (default shown)
+#
+# Both can also be passed inline: VPS=root@myvps ./deploy.sh
 #
 # Subcommands:
 #   deploy.sh                 rsync + build + up (default)
 #   deploy.sh tailscale-serve (re)apply the Grafana HTTPS serve rule
 set -euo pipefail
 
-VPS="${VPS:-root@claw}"
-TARGET="${TARGET:-/opt/llm-observability}"
 REPO="$(cd "$(dirname "$0")" && pwd)"
+
+if [[ -f "${REPO}/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "${REPO}/.env"
+  set +a
+fi
+
+: "${VPS:?VPS must be set (in .env or environment), e.g. VPS=root@myvps}"
+TARGET="${TARGET:-/opt/llm-observability}"
 
 info() { echo "[+] $*"; }
 die()  { echo "[!] $*" >&2; exit 1; }
