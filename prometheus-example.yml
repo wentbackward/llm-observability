@@ -1,0 +1,39 @@
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+
+# Copy this file to prometheus.yml and adjust the targets to match your
+# infrastructure. The real prometheus.yml is .gitignored to avoid leaking
+# internal hostnames into version control.
+
+scrape_configs:
+
+  # llm-proxy — list every running instance; dashboards sum across them by `backend`
+  - job_name: llm_proxy
+    static_configs:
+      - targets:
+          - 'gpu-host-1.example.ts.net:9091'
+          - 'gpu-host-2.example.ts.net:9091'
+
+  # vLLM built-in metrics — one target per vLLM process / port
+  - job_name: vllm
+    static_configs:
+      - targets:
+          - 'gpu-host-1:3040'
+          - 'gpu-host-1:3041'
+          - 'gpu-host-2:3040'
+          - 'gpu-host-2:3041'
+    metrics_path: /metrics
+
+  # nv-monitor — system/GPU resources on GPU servers
+  # Dashboards filter by the `host` label, derived here from the FQDN.
+  - job_name: nv_monitor
+    scrape_interval: 5s
+    static_configs:
+      - targets:
+          - 'gpu-host-1.example.ts.net:9011'
+          - 'gpu-host-2.example.ts.net:9011'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '([^.:]+).*'      # take the first DNS label, strip domain + port
+        target_label: host

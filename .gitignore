@@ -1,6 +1,9 @@
 # Secrets — never commit
 .env
 
+# Production scrape config — leaks internal hostnames. See prometheus-example.yml.
+/prometheus.yml
+
 # OS cruft
 .DS_Store
 
