@@ -33,7 +33,13 @@ services:
       - prometheus
 
 volumes:
+  # Marked external so compose doesn't try to manage these — deploy.sh
+  # ensures they exist before `compose up`. This avoids the "volume already
+  # exists but was created for project X" warnings when adopting volumes
+  # from a previous compose project.
   prometheus-data:
     name: ${PROMETHEUS_VOLUME:-llm-observability_prometheus-data}
+    external: true
   grafana-data:
     name: ${GRAFANA_VOLUME:-llm-observability_grafana-data}
+    external: true

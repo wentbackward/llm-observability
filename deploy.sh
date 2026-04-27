@@ -26,7 +26,20 @@ fi
 TARGET="${TARGET:-/opt/llm-observability}"
 
 info() { echo "[+] $*"; }
+warn() { echo "[~] $*"; }
 die()  { echo "[!] $*" >&2; exit 1; }
+
+# Volumes are declared external in compose.yml — make sure they exist
+# before `compose up` so a fresh VPS deploy isn't a special case. Idempotent.
+ensure_volume() {
+  local name="$1"
+  if ssh "$VPS" "docker volume inspect ${name} >/dev/null 2>&1"; then
+    return 0
+  fi
+  warn "Volume ${name} missing on ${VPS} — creating empty volume."
+  warn "    (If you intended to adopt an existing volume, abort and check the name.)"
+  ssh "$VPS" "docker volume create ${name}" >/dev/null
+}
 
 deploy() {
   info "Syncing llm-observability to ${VPS}:${TARGET}..."
@@ -53,6 +66,9 @@ deploy() {
   else
     info "No local .env — ensure ${TARGET}/.env exists on the VPS."
   fi
+
+  ensure_volume "${PROMETHEUS_VOLUME:-llm-observability_prometheus-data}"
+  ensure_volume "${GRAFANA_VOLUME:-llm-observability_grafana-data}"
 
   info "Starting stack..."
   ssh "$VPS" "cd ${TARGET} && docker compose up -d && docker compose ps"
