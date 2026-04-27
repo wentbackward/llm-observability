@@ -31,8 +31,16 @@ die()  { echo "[!] $*" >&2; exit 1; }
 deploy() {
   info "Syncing llm-observability to ${VPS}:${TARGET}..."
   ssh "$VPS" "install -d -m 755 ${TARGET}"
-  rsync -avz --delete \
-    --exclude='.env' --exclude='.git/' \
+  # Whitelist: only ship what compose actually needs at runtime.
+  # Anything not listed here is denied AND removed from the target on each
+  # deploy (--delete-excluded). .env is protected and shipped separately.
+  rsync -avz --delete --delete-excluded \
+    --filter='P /.env' \
+    --include='/compose.yml' \
+    --include='/prometheus.yml' \
+    --include='/grafana/' \
+    --include='/grafana/**' \
+    --exclude='*' \
     "${REPO}/" "${VPS}:${TARGET}/"
 
   if [[ -f "${REPO}/.env" ]]; then
